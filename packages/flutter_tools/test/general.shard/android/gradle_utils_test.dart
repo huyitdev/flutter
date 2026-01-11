@@ -8,6 +8,7 @@ import 'package:flutter_tools/src/base/common.dart' show ToolExit;
 import 'package:flutter_tools/src/base/file_system.dart';
 import 'package:flutter_tools/src/base/logger.dart';
 import 'package:flutter_tools/src/base/platform.dart';
+import 'package:flutter_tools/src/base/version.dart';
 import 'package:flutter_tools/src/base/version_range.dart';
 import 'package:flutter_tools/src/cache.dart';
 import 'package:flutter_tools/src/project.dart';
@@ -375,7 +376,7 @@ buildscript {
 
     dependencies {
         // Decoy value to ensure we ignore commented out lines.
-        // classpath 'com.android.application' version '6.1.0' apply false
+        // classpath 'com.android.tools.build:gradle:1.1.1'
         classpath 'com.android.tools.build:gradle:$expectedVersion'
     }
 }
@@ -428,6 +429,7 @@ allprojects {
         final Directory androidDirectory = fileSystem.directory('/android')..createSync();
         androidDirectory.childFile('build.gradle.kts').writeAsStringSync('''
 dependencies {
+    // compileOnly "com.android.tools.build:gradle:0.1.0" // Decoy version
     compileOnly "com.android.tools.build:gradle:$expectedVersion"
 }
 ''');
@@ -442,6 +444,7 @@ dependencies {
         final Directory androidDirectory = fileSystem.directory('/android')..createSync();
         androidDirectory.childFile('build.gradle.kts').writeAsStringSync('''
 dependencies {
+    // compileOnly("com.android.tools.build:gradle:0.0.1") // Decoy version
     compileOnly("com.android.tools.build:gradle:$expectedVersion")
 }
 ''');
@@ -470,6 +473,36 @@ plugins {
       ''');
       expect(getAgpVersion(androidDirectory, BufferLogger.test()), expectedVersion);
     });
+
+    testWithoutContext(
+      'returns the AGP version when set in Groovy build file as plugin with comment',
+      () async {
+        const expectedVersion = '6.8';
+        final Directory androidDirectory = fileSystem.directory('/android')..createSync();
+        androidDirectory.childFile('build.gradle').writeAsStringSync('''
+plugins {
+    // id 'com.android.application' version '0.1' apply false // Decoy comment
+    id 'com.android.application' version '$expectedVersion' apply false
+}
+      ''');
+        expect(getAgpVersion(androidDirectory, BufferLogger.test()), expectedVersion);
+      },
+    );
+
+    testWithoutContext(
+      'returns the AGP version when set in Kotlin build file as plugin with comment',
+      () async {
+        const expectedVersion = '7.2.0';
+        final Directory androidDirectory = fileSystem.directory('/android')..createSync();
+        androidDirectory.childFile('build.gradle.kts').writeAsStringSync('''
+plugins {
+    // id("com.android.application") version "0.1.0" apply false // Decoy comment
+    id("com.android.application") version "$expectedVersion" apply false
+}
+      ''');
+        expect(getAgpVersion(androidDirectory, BufferLogger.test()), expectedVersion);
+      },
+    );
 
     testWithoutContext('prefers the AGP version when set in Groovy, ignores Kotlin', () async {
       const versionInGroovy = '7.3.0';
@@ -593,7 +626,7 @@ pluginManagement {
   plugins {
       id("dev.flutter.flutter-plugin-loader") version "1.0.0"
       // Decoy value to ensure we ignore commented out lines.
-      // id("com.android.application") version "6.1.0" apply false
+      // id("com.android.application") version "6.1.0" apply false /
       id("com.android.application") version "7.5.0" apply false
   }
 }
@@ -602,6 +635,26 @@ pluginManagement {
       expect(getAgpVersion(androidDirectory, BufferLogger.test()), '7.5.0');
     });
 
+    testWithoutContext(
+      'returns the AGP version when in Kotlin settings as plugin adversarial commenting',
+      () async {
+        final Directory androidDirectory = fileSystem.directory('/android')..createSync();
+        // File must exist and cannot have agp defined.
+        androidDirectory.childFile('build.gradle.kts').writeAsStringSync(r'');
+        androidDirectory.childFile('settings.gradle.kts').writeAsStringSync(r'''
+pluginManagement {
+  plugins {
+      id("dev.flutter.flutter-plugin-loader") version "1.0.0"
+      // Decoy value to ensure we ignore commented out lines.
+      // id("com.android.application") version "6.1.0" apply false /
+      id("com.android.application") version "7.5.0" apply false // id("com.android.application") version "6.2.0" apply false
+  }
+}
+''');
+
+        expect(getAgpVersion(androidDirectory, BufferLogger.test()), '7.5.0');
+      },
+    );
     testWithoutContext('returns null when agp version is misconfigured', () async {
       final Directory androidDirectory = fileSystem.directory('/android')..createSync();
       androidDirectory.childFile('build.gradle.kts').writeAsStringSync('''
@@ -774,25 +827,57 @@ dependencies {
       );
     });
 
-    testWithoutContext('returns the KGP version when in Kotlin settings as plugin', () async {
-      final Directory androidDirectory = fileSystem.directory('/android')..createSync();
-      // File must exist and cannot have kgp defined.
-      androidDirectory.childFile('build.gradle.kts').writeAsStringSync(r'');
-      androidDirectory.childFile('settings.gradle.kts').writeAsStringSync(r'''
+    testWithoutContext(
+      'returns the KGP version when in Kotlin DSL Kotlin settings as plugin',
+      () async {
+        final Directory androidDirectory = fileSystem.directory('/android')..createSync();
+        // File must exist and cannot have kgp defined.
+        androidDirectory.childFile('build.gradle.kts').writeAsStringSync(r'');
+        androidDirectory.childFile('settings.gradle.kts').writeAsStringSync(r'''
 pluginManagement {
   plugins {
       id("dev.flutter.flutter-plugin-loader") version "1.0.0"
       // Decoy value to ensure we ignore commented out lines.
-      // id("org.jetbrains.kotlin.android") version "6.1.0" apply false
+      // id("org.jetbrains.kotlin.android") version "6.1.0" apply false // Decoy comment
       id("org.jetbrains.kotlin.android") version "1.8.22" apply false
   }
 }
 ''');
-      final processManager = FakeProcessManager.empty();
-      processManager.excludedExecutables = <String>{'./gradlew'};
+        final processManager = FakeProcessManager.empty();
+        processManager.excludedExecutables = <String>{'./gradlew'};
 
-      expect(await getKgpVersion(androidDirectory, BufferLogger.test(), processManager), '1.8.22');
-    });
+        expect(
+          await getKgpVersion(androidDirectory, BufferLogger.test(), processManager),
+          '1.8.22',
+        );
+      },
+    );
+
+    testWithoutContext(
+      'returns the KGP version when in Groovy DSL Kotlin settings as plugin',
+      () async {
+        final Directory androidDirectory = fileSystem.directory('/android')..createSync();
+        // File must exist and cannot have kgp defined.
+        androidDirectory.childFile('build.gradle.kts').writeAsStringSync(r'');
+        androidDirectory.childFile('settings.gradle.kts').writeAsStringSync(r'''
+pluginManagement {
+  plugins {
+      id "dev.flutter.flutter-plugin-loader"  version "1.0.0"
+      // Decoy value to ensure we ignore commented out lines.
+      // id "org.jetbrains.kotlin.android"  version "6.1.0" apply false // Decoy comment
+      id "org.jetbrains.kotlin.android" version "1.8.22" apply false
+  }
+}
+''');
+        final processManager = FakeProcessManager.empty();
+        processManager.excludedExecutables = <String>{'./gradlew'};
+
+        expect(
+          await getKgpVersion(androidDirectory, BufferLogger.test(), processManager),
+          '1.8.22',
+        );
+      },
+    );
 
     group('validates kgp/gradle versions', () {
       final testData = <GradleKgpTestData>[
@@ -918,8 +1003,7 @@ pluginManagement {
         KgpAgpTestData(
           true,
           kgpVersion: templateKotlinGradlePluginVersion,
-          // TODO(reidbaker): Replace with templateAndroidGradlePluginVersion
-          agpVersion: '8.7.2',
+          agpVersion: templateAndroidGradlePluginVersion,
         ),
 
         // Kotlin version at the edge of support window.
@@ -1113,6 +1197,44 @@ pluginManagement {
         });
       }
     });
+  });
+
+  testWithoutContext('agp versions validation', () {
+    final Version? parsedTemplateAndroidGradlePluginVersion = Version.parse(
+      templateAndroidGradlePluginVersion,
+    );
+    final Version? parsedMaxKnownAgpVersionWithFullKotlinSupport = Version.parse(
+      maxKnownAgpVersionWithFullKotlinSupport,
+    );
+    final Version? parsedMaxKnownAndSupportedAgpVersion = Version.parse(
+      maxKnownAndSupportedAgpVersion,
+    );
+    final Version? parsedMaxKnownAgpVersion = Version.parse(maxKnownAgpVersion);
+
+    expect(
+      parsedTemplateAndroidGradlePluginVersion! <= parsedMaxKnownAgpVersionWithFullKotlinSupport!,
+      isTrue,
+      reason:
+          'Template AGP version ($parsedTemplateAndroidGradlePluginVersion) '
+          'is higher than maxKnownAgpVersionWithFullKotlinSupport ($parsedMaxKnownAgpVersionWithFullKotlinSupport). '
+          'Please update the maxKnownAgpVersionWithFullKotlinSupport',
+    );
+    expect(
+      parsedMaxKnownAndSupportedAgpVersion! <= parsedMaxKnownAgpVersion!,
+      isTrue,
+      reason:
+          'maxKnownAndSupportedAgpVersion ($parsedMaxKnownAndSupportedAgpVersion) '
+          'is higher than maxKnownAgpVersion ($parsedMaxKnownAgpVersion). '
+          'Please update the maxKnownAgpVersion',
+    );
+    expect(
+      parsedMaxKnownAgpVersionWithFullKotlinSupport < parsedMaxKnownAgpVersion,
+      isTrue,
+      reason:
+          'maxKnownAgpVersionWithFullKotlinSupport ($parsedMaxKnownAgpVersionWithFullKotlinSupport) '
+          'is higher than or equal to maxKnownAgpVersion ($parsedMaxKnownAgpVersion). '
+          'Please update the maxKnownAgpVersion',
+    );
   });
 
   group('getGradleVersionForAndroidPlugin', () {

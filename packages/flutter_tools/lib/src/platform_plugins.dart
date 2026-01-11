@@ -167,12 +167,12 @@ class AndroidPlugin extends PluginPlatform implements NativeOrDartPlugin {
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
       'name': name,
-      if (package != null) 'package': package,
-      if (pluginClass != null) 'class': pluginClass,
-      if (dartPluginClass != null) kDartPluginClass: dartPluginClass,
-      if (dartFileName != null) kDartFileName: dartFileName,
+      'package': ?package,
+      'class': ?pluginClass,
+      kDartPluginClass: ?dartPluginClass,
+      kDartFileName: ?dartFileName,
       if (ffiPlugin) kFfiPlugin: true,
-      if (defaultPackage != null) kDefaultPackage: defaultPackage,
+      kDefaultPackage: ?defaultPackage,
       // Mustache doesn't support complex types.
       'supportsEmbeddingV1': _supportedEmbeddings.contains('1'),
       'supportsEmbeddingV2': _supportedEmbeddings.contains('2'),
@@ -327,12 +327,12 @@ class IOSPlugin extends PluginPlatform implements NativeOrDartPlugin, DarwinPlug
     return <String, dynamic>{
       'name': name,
       'prefix': classPrefix,
-      if (pluginClass != null) 'class': pluginClass,
-      if (dartPluginClass != null) kDartPluginClass: dartPluginClass,
-      if (dartFileName != null) kDartFileName: dartFileName,
+      'class': ?pluginClass,
+      kDartPluginClass: ?dartPluginClass,
+      kDartFileName: ?dartFileName,
       if (ffiPlugin) kFfiPlugin: true,
       if (sharedDarwinSource) kSharedDarwinSource: true,
-      if (defaultPackage != null) kDefaultPackage: defaultPackage,
+      kDefaultPackage: ?defaultPackage,
     };
   }
 }
@@ -368,22 +368,9 @@ class MacOSPlugin extends PluginPlatform implements NativeOrDartPlugin, DarwinPl
       );
     }
 
-    final String? pluginClass;
-    if (yaml[kPluginClass] == 'none') {
-      // TODO(matanlurey): Remove as part of https://github.com/flutter/flutter/issues/57497.
-      globals.printWarning(
-        'Use of `dartPluginClass: none` ($name) is deprecated, and will be '
-        'removed in the next stable version. See '
-        'https://github.com/flutter/flutter/issues/57497 for details.',
-      );
-      pluginClass = null;
-    } else {
-      pluginClass = yaml[kPluginClass] as String?;
-    }
-
     return MacOSPlugin(
       name: name,
-      pluginClass: pluginClass,
+      pluginClass: yaml[kPluginClass] as String?,
       dartPluginClass: dartPluginClass,
       dartFileName: dartFileName,
       ffiPlugin: yaml[kFfiPlugin] as bool?,
@@ -427,12 +414,12 @@ class MacOSPlugin extends PluginPlatform implements NativeOrDartPlugin, DarwinPl
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
       'name': name,
-      if (pluginClass != null) 'class': pluginClass,
-      if (dartPluginClass != null) kDartPluginClass: dartPluginClass,
-      if (dartFileName != null) kDartFileName: dartFileName,
+      'class': ?pluginClass,
+      kDartPluginClass: ?dartPluginClass,
+      kDartFileName: ?dartFileName,
       if (ffiPlugin) kFfiPlugin: true,
       if (sharedDarwinSource) kSharedDarwinSource: true,
-      if (defaultPackage != null) kDefaultPackage: defaultPackage,
+      kDefaultPackage: ?defaultPackage,
     };
   }
 }
@@ -457,16 +444,7 @@ class WindowsPlugin extends PluginPlatform implements NativeOrDartPlugin, Varian
 
   factory WindowsPlugin.fromYaml(String name, YamlMap yaml) {
     assert(validate(yaml));
-    var pluginClass = yaml[kPluginClass] as String?;
-    if (pluginClass == 'none') {
-      // TODO(matanlurey): Remove as part of https://github.com/flutter/flutter/issues/57497.
-      globals.printWarning(
-        'Use of `dartPluginClass: none` ($name) is deprecated, and will be '
-        'removed in the next stable version. See '
-        'https://github.com/flutter/flutter/issues/57497 for details.',
-      );
-      pluginClass = null;
-    }
+    final pluginClass = yaml[kPluginClass] as String?;
     final variants = <PluginPlatformVariant>{};
     final variantList = yaml[kSupportedVariants] as YamlList?;
     if (variantList == null) {
@@ -536,12 +514,12 @@ class WindowsPlugin extends PluginPlatform implements NativeOrDartPlugin, Varian
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
       'name': name,
-      if (pluginClass != null) 'class': pluginClass,
+      'class': ?pluginClass,
       if (pluginClass != null) 'filename': _filenameForCppClass(pluginClass!),
-      if (dartPluginClass != null) kDartPluginClass: dartPluginClass,
-      if (dartFileName != null) kDartFileName: dartFileName,
+      kDartPluginClass: ?dartPluginClass,
+      kDartFileName: ?dartFileName,
       if (ffiPlugin) kFfiPlugin: true,
-      if (defaultPackage != null) kDefaultPackage: defaultPackage,
+      kDefaultPackage: ?defaultPackage,
     };
   }
 }
@@ -595,7 +573,7 @@ class LinuxPlugin extends PluginPlatform implements NativeOrDartPlugin {
 
     return LinuxPlugin(
       name: name,
-      pluginClass: pluginClass,
+      pluginClass: yaml[kPluginClass] as String?,
       dartPluginClass: dartPluginClass,
       dartFileName: dartFileName,
       ffiPlugin: yaml[kFfiPlugin] as bool? ?? false,
@@ -632,12 +610,12 @@ class LinuxPlugin extends PluginPlatform implements NativeOrDartPlugin {
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
       'name': name,
-      if (pluginClass != null) 'class': pluginClass,
+      'class': ?pluginClass,
       if (pluginClass != null) 'filename': _filenameForCppClass(pluginClass!),
-      if (dartPluginClass != null) kDartPluginClass: dartPluginClass,
-      if (dartFileName != null) kDartFileName: dartFileName,
+      kDartPluginClass: ?dartPluginClass,
+      kDartFileName: ?dartFileName,
       if (ffiPlugin) kFfiPlugin: true,
-      if (defaultPackage != null) kDefaultPackage: defaultPackage,
+      kDefaultPackage: ?defaultPackage,
     };
   }
 }

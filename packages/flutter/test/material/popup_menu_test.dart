@@ -3783,10 +3783,10 @@ void main() {
     WidgetTester tester,
   ) async {
     final Key popupMenuButtonKey = UniqueKey();
-    final MaterialStateProperty<TextStyle?> labelTextStyle = MaterialStateProperty.resolveWith((
-      Set<MaterialState> states,
+    final WidgetStateProperty<TextStyle?> labelTextStyle = WidgetStateProperty.resolveWith((
+      Set<WidgetState> states,
     ) {
-      if (states.contains(MaterialState.selected)) {
+      if (states.contains(WidgetState.selected)) {
         return const TextStyle(color: Colors.red, fontSize: 24.0);
       }
 
@@ -3822,10 +3822,10 @@ void main() {
     await tester.tap(find.byKey(popupMenuButtonKey));
     await tester.pumpAndSettle();
 
-    expect(_labelStyle(tester, 'Item 1'), labelTextStyle.resolve(<MaterialState>{}));
+    expect(_labelStyle(tester, 'Item 1'), labelTextStyle.resolve(<WidgetState>{}));
     expect(
       _labelStyle(tester, 'Item 2'),
-      labelTextStyle.resolve(<MaterialState>{MaterialState.selected}),
+      labelTextStyle.resolve(<WidgetState>{WidgetState.selected}),
     );
   });
 
@@ -4702,6 +4702,128 @@ void main() {
     expect(borderRadius.bottomRight, const Radius.circular(5));
     expect(borderRadius.topLeft, const Radius.circular(5));
     expect(borderRadius.topRight, const Radius.circular(5));
+  });
+
+  // Regression test for https://github.com/flutter/flutter/issues/171422.
+  testWidgets('PopupMenuButton should not crash when being hidden immediately', (
+    WidgetTester tester,
+  ) async {
+    bool showPopupMenu = true;
+
+    Widget buildWidget() {
+      return MaterialApp(
+        home: Scaffold(
+          appBar: AppBar(
+            actions: <Widget>[
+              if (showPopupMenu)
+                PopupMenuButton<String>(
+                  itemBuilder: (BuildContext context) {
+                    return <PopupMenuItem<String>>[
+                      const PopupMenuItem<String>(value: 'add', child: Text('Add')),
+                      const PopupMenuItem<String>(value: 'hide', child: Text('Hide')),
+                      const PopupMenuItem<String>(value: 'delete', child: Text('Delete')),
+                    ];
+                  },
+                  onSelected: (String value) {
+                    if (value == 'hide') {
+                      showPopupMenu = false;
+                    }
+                  },
+                ),
+            ],
+          ),
+          body: Text(
+            'PopupMenuButton:${showPopupMenu ? 'PopupMenu is showing' : 'PopupMenu is hidden'}',
+          ),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(buildWidget());
+
+    // Find the PopupMenuButton.
+    final Finder popupMenuButtonFinder = find.byType(PopupMenuButton<String>);
+    expect(popupMenuButtonFinder, findsOneWidget);
+
+    // Tap on PopupMenuButton.
+    await tester.tap(popupMenuButtonFinder);
+    await tester.pumpAndSettle();
+
+    // Tap on "Hide" menu item.
+    await tester.tap(find.text('Hide'));
+
+    // Rebuild the widget tree with the PopupMenuButton removed to trigger the bug.
+    await tester.pumpWidget(buildWidget());
+
+    // Verify no exception is thrown at a brief moment when the PopupMenuButton is hidden.
+    expect(tester.takeException(), isNull);
+  });
+
+  // Regression test for https://github.com/flutter/flutter/issues/43824.
+  testWidgets('PopupMenu updates when PopupMenuTheme in Theme changes', (
+    WidgetTester tester,
+  ) async {
+    Widget buildApp(PopupMenuThemeData popupMenuTheme) {
+      return MaterialApp(
+        theme: ThemeData(popupMenuTheme: popupMenuTheme),
+        home: Scaffold(
+          appBar: AppBar(
+            actions: <Widget>[
+              PopupMenuButton<String>(
+                itemBuilder: (BuildContext context) {
+                  return <PopupMenuItem<String>>[
+                    const PopupMenuItem<String>(value: '0', child: Text('Item 0')),
+                    const PopupMenuItem<String>(value: '1', child: Text('Item 1')),
+                  ];
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    void checkPopupMenu(PopupMenuThemeData popupMenuTheme) {
+      final Material material = tester.widget(find.byType(Material).last);
+      expect(material.elevation, popupMenuTheme.elevation);
+      expect(material.color, popupMenuTheme.color);
+      expect(material.shadowColor, popupMenuTheme.shadowColor);
+      expect(material.surfaceTintColor, popupMenuTheme.surfaceTintColor);
+      expect(material.shape, popupMenuTheme.shape);
+
+      final SingleChildScrollView scrollView = tester.widget(find.byType(SingleChildScrollView));
+      expect(scrollView.padding, popupMenuTheme.menuPadding);
+    }
+
+    final PopupMenuThemeData popupMenuTheme1 = PopupMenuThemeData(
+      elevation: 10,
+      color: Colors.red,
+      shadowColor: Colors.black,
+      surfaceTintColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      menuPadding: const EdgeInsets.all(10),
+    );
+    final PopupMenuThemeData popupMenuTheme2 = PopupMenuThemeData(
+      elevation: 20,
+      color: Colors.blue,
+      shadowColor: Colors.white,
+      surfaceTintColor: Colors.black,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      menuPadding: const EdgeInsets.all(20),
+    );
+
+    // Show the menu with the first theme.
+    await tester.pumpWidget(buildApp(popupMenuTheme1));
+    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.pumpAndSettle();
+
+    checkPopupMenu(popupMenuTheme1);
+
+    // Rebuild with the second theme.
+    await tester.pumpWidget(buildApp(popupMenuTheme2));
+    await tester.pumpAndSettle();
+
+    checkPopupMenu(popupMenuTheme2);
   });
 }
 

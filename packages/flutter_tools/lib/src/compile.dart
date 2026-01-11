@@ -16,6 +16,8 @@ import 'base/file_system.dart';
 import 'base/io.dart';
 import 'base/logger.dart';
 import 'base/platform.dart';
+import 'base/process.dart';
+import 'base/utils.dart';
 import 'build_info.dart';
 import 'convert.dart';
 
@@ -370,17 +372,14 @@ class KernelCompiler {
           // See: https://github.com/flutter/flutter/issues/103994
           '--verbosity=error',
           ...?extraFrontEndOptions,
-          if (mainUri != null) mainUri else '--native-assets-only',
+          mainUri ?? '--native-assets-only',
         ];
 
     _logger.printTrace(command.join(' '));
     final Process server = await _processManager.start(command);
 
     server.stderr.transform<String>(utf8.decoder).listen(_logger.printError);
-    server.stdout
-        .transform<String>(utf8.decoder)
-        .transform<String>(const LineSplitter())
-        .listen(_stdoutHandler.handler);
+    server.stdout.transform(utf8LineDecoder).listen(_stdoutHandler.handler);
     final int exitCode = await server.exitCode;
     if (exitCode == 0) {
       return _stdoutHandler.compilerOutput?.future;
@@ -505,6 +504,7 @@ abstract class ResidentCompiler {
     required Artifacts artifacts,
     required Platform platform,
     required FileSystem fileSystem,
+    required ShutdownHooks shutdownHooks,
     bool testCompilation,
     bool trackWidgetCreation,
     String packagesPath,
@@ -625,6 +625,7 @@ class DefaultResidentCompiler implements ResidentCompiler {
     required this.artifacts,
     required Platform platform,
     required FileSystem fileSystem,
+    required ShutdownHooks shutdownHooks,
     this.testCompilation = false,
     this.trackWidgetCreation = true,
     this.packagesPath,
@@ -642,6 +643,7 @@ class DefaultResidentCompiler implements ResidentCompiler {
     @visibleForTesting StdoutHandler? stdoutHandler,
   }) : _logger = logger,
        _processManager = processManager,
+       _shutdownHooks = shutdownHooks,
        _stdoutHandler = stdoutHandler ?? StdoutHandler(logger: logger, fileSystem: fileSystem),
        _platform = platform,
        dartDefines = dartDefines ?? const <String>[],
@@ -654,6 +656,7 @@ class DefaultResidentCompiler implements ResidentCompiler {
   final ProcessManager _processManager;
   final Artifacts artifacts;
   final Platform _platform;
+  final ShutdownHooks _shutdownHooks;
 
   final bool testCompilation;
   final BuildMode buildMode;
@@ -885,8 +888,7 @@ class DefaultResidentCompiler implements ResidentCompiler {
     _logger.printTrace(command.join(' '));
     _server = await _processManager.start(command);
     _server?.stdout
-        .transform<String>(utf8.decoder)
-        .transform<String>(const LineSplitter())
+        .transform(utf8LineDecoder)
         .listen(
           _stdoutHandler.handler,
           onDone: () {
@@ -899,14 +901,13 @@ class DefaultResidentCompiler implements ResidentCompiler {
           },
         );
 
-    _server?.stderr
-        .transform<String>(utf8.decoder)
-        .transform<String>(const LineSplitter())
-        .listen(_logger.printError);
+    _server?.stderr.transform(utf8LineDecoder).listen(_logger.printError);
 
     unawaited(
       _server?.exitCode.then((int code) {
-        if (code != 0) {
+        // The frontend server exits with a 253 error code when we shutdown due to a signal.
+        // Don't treat this as an error if we're in the middle of the shutdown sequence.
+        if (code != 0 && !_shutdownHooks.isShuttingDown) {
           throwToolExit('The Dart compiler exited unexpectedly.');
         }
       }),

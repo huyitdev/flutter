@@ -227,7 +227,7 @@ abstract class Target {
       'dependencies': <String>[for (final Target target in dependencies) target.name],
       'inputs': <String>[for (final File file in resolveInputs(environment).sources) file.path],
       'outputs': <String>[for (final File file in resolveOutputs(environment).sources) file.path],
-      if (key != null) 'buildKey': key,
+      'buildKey': ?key,
       'stamp': _findStampFile(environment).absolute.path,
     };
   }
@@ -446,6 +446,28 @@ class Environment {
     required this.inputs,
     required this.generateDartPluginRegistry,
   });
+
+  Environment copyWith({Directory? outputDir}) {
+    return Environment._(
+      outputDir: outputDir ?? this.outputDir,
+      projectDir: projectDir,
+      packageConfigPath: packageConfigPath,
+      buildDir: buildDir,
+      rootBuildDir: rootBuildDir,
+      cacheDir: cacheDir,
+      defines: defines,
+      flutterRootDir: flutterRootDir,
+      fileSystem: fileSystem,
+      logger: logger,
+      artifacts: artifacts,
+      processManager: processManager,
+      platform: platform,
+      analytics: analytics,
+      engineVersion: engineVersion,
+      inputs: inputs,
+      generateDartPluginRegistry: generateDartPluginRegistry,
+    );
+  }
 
   /// The [Source] value which is substituted with the path to [projectDir].
   static const kProjectDirectory = '{PROJECT_DIR}';

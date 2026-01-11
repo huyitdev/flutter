@@ -4,7 +4,6 @@
 
 import 'dart:async';
 import 'dart:js_interop';
-import 'dart:js_util' as js_util;
 import 'dart:typed_data';
 
 import 'package:test/bootstrap/browser.dart';
@@ -3957,15 +3956,10 @@ Future<void> testMain() async {
 }
 
 DomKeyboardEvent dispatchKeyboardEvent(DomEventTarget target, String type, {required int keyCode}) {
-  final Object jsKeyboardEvent = js_util.getProperty<Object>(domWindow, 'KeyboardEvent');
-  final List<dynamic> eventArgs = <dynamic>[
-    type,
-    js_util.jsify(<String, dynamic>{'keyCode': keyCode, 'cancelable': true}),
-  ];
-  final DomKeyboardEvent event = js_util.callConstructor<DomKeyboardEvent>(
-    jsKeyboardEvent,
-    eventArgs,
-  );
+  final DomKeyboardEvent event = createDomKeyboardEvent(type, <String, Object>{
+    'keyCode': keyCode,
+    'cancelable': true,
+  });
   target.dispatchEvent(event);
 
   return event;
@@ -4069,7 +4063,7 @@ Map<String, dynamic> createFlutterConfig(
       if (decimal) 'decimal': true,
       if (isMultiline) 'isMultiline': true,
     },
-    if (viewId != null) 'viewId': viewId,
+    'viewId': ?viewId,
     'readOnly': readOnly,
     'obscureText': obscureText,
     'autocorrect': autocorrect,
@@ -4092,7 +4086,7 @@ Map<String, dynamic> createAutofillInfo(String? hint, String uniqueId, {String? 
     <String, dynamic>{
       'uniqueIdentifier': uniqueId,
       if (hint != null) 'hints': <String>[hint],
-      if (placeholder != null) 'hintText': placeholder,
+      'hintText': ?placeholder,
       'editingValue': <String, dynamic>{
         'text': 'Test',
         'selectionBase': 0,

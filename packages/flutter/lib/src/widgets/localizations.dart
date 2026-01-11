@@ -194,6 +194,14 @@ abstract class WidgetsLocalizations {
   /// list one space right in the list.
   String get reorderItemRight;
 
+  /// The semantics label used for [RawAutocomplete] when the options list goes
+  /// from empty to non-empty.
+  String get searchResultsFound => 'Search results found';
+
+  /// The semantics label used for [RawAutocomplete] when the options list goes
+  /// from non-empty to empty.
+  String get noResultsFound => 'No results found';
+
   /// Label for "copy" edit buttons and menu items.
   String get copyButtonLabel;
 
@@ -285,6 +293,12 @@ class DefaultWidgetsLocalizations implements WidgetsLocalizations {
   String get reorderItemToStart => 'Move to the start';
 
   @override
+  String get searchResultsFound => 'Search results found';
+
+  @override
+  String get noResultsFound => 'No results found';
+
+  @override
   String get copyButtonLabel => 'Copy';
 
   @override
@@ -354,7 +368,7 @@ class _LocalizationsScope extends InheritedWidget {
 /// {@tool snippet}
 ///
 /// This following class is defined in terms of the
-/// [Dart `intl` package](https://github.com/dart-lang/intl). Using the `intl`
+/// [Dart `intl` package](https://github.com/dart-lang/i18n/tree/main/pkgs/intl). Using the `intl`
 /// package isn't required.
 ///
 /// ```dart
@@ -620,6 +634,14 @@ class _LocalizationsState extends State<Localizations> {
 
   Locale? get locale => _locale;
   Locale? _locale;
+  set locale(Locale? locale) {
+    assert(locale != null);
+    if (_locale == locale) {
+      return;
+    }
+    WidgetsBinding.instance.platformDispatcher.setApplicationLocale(locale!);
+    _locale = locale;
+  }
 
   @override
   void initState() {
@@ -654,7 +676,7 @@ class _LocalizationsState extends State<Localizations> {
   void load(Locale locale) {
     final Iterable<LocalizationsDelegate<dynamic>> delegates = widget.delegates;
     if (delegates.isEmpty) {
-      _locale = locale;
+      this.locale = locale;
       return;
     }
 
@@ -667,7 +689,7 @@ class _LocalizationsState extends State<Localizations> {
     if (typeToResources != null) {
       // All of the delegates' resources loaded synchronously.
       _typeToResources = typeToResources!;
-      _locale = locale;
+      this.locale = locale;
     } else {
       // - Don't rebuild the dependent widgets until the resources for the new locale
       // have finished loading. Until then the old locale will continue to be used.
@@ -678,7 +700,7 @@ class _LocalizationsState extends State<Localizations> {
         if (mounted) {
           setState(() {
             _typeToResources = value;
-            _locale = locale;
+            this.locale = locale;
           });
         }
         RendererBinding.instance.allowFirstFrame();
@@ -803,7 +825,7 @@ class LocalizationsResolver extends ChangeNotifier with WidgetsBindingObserver {
     // localizationsDelegate parameter can be used to override
     // WidgetsLocalizations.delegate.
     return <LocalizationsDelegate<Object?>>[
-      if (_localizationsDelegates != null) ..._localizationsDelegates!,
+      ...?_localizationsDelegates,
       DefaultWidgetsLocalizations.delegate,
     ];
   }

@@ -75,6 +75,7 @@ void main() {
     final allowedPaths = <String>[
       // This is a standalone script invoked by xcode, not part of the tool
       fileSystem.path.join(flutterTools, 'bin', 'xcode_backend.dart'),
+      fileSystem.path.join(flutterTools, 'lib', 'src', 'base', 'exit.dart'),
       fileSystem.path.join(flutterTools, 'lib', 'src', 'base', 'io.dart'),
       fileSystem.path.join(flutterTools, 'lib', 'src', 'base', 'platform.dart'),
       fileSystem.path.join(flutterTools, 'lib', 'src', 'base', 'error_handling_io.dart'),
@@ -161,6 +162,23 @@ void main() {
     final allowedPath = <String>[
       fileSystem.path.join(flutterTools, 'lib', 'src', 'isolated', 'web_compilation_delegate.dart'),
       fileSystem.path.join(flutterTools, 'test', 'general.shard', 'platform_plugins_test.dart'),
+      fileSystem.path.join(
+        flutterTools,
+        'test',
+        'widget_preview_scaffold.shard',
+        'widget_preview_scaffold',
+        'test',
+        'filter_by_selected_file_test.dart',
+      ),
+      fileSystem.path.join(
+        flutterTools,
+        'test',
+        'widget_preview_scaffold.shard',
+        'widget_preview_scaffold',
+        'lib',
+        'src',
+        'widget_preview_scaffold_controller.dart',
+      ),
     ];
     for (final dirName in <String>['lib', 'bin', 'test']) {
       final Iterable<File> files = fileSystem
@@ -258,8 +276,8 @@ void main() {
               ) ||
               line.startsWith(RegExp(r'import.*package:build_runner/build_runner.dart')) ||
               line.startsWith(RegExp(r'import.*package:build_config/build_config.dart')) ||
-              line.startsWith(RegExp(r'import.*dwds:*.dart')) ||
-              line.startsWith(RegExp(r'import.*devtools_server:*.dart')) ||
+              line.startsWith(RegExp(r'import.*package:dwds/.*.dart')) ||
+              line.startsWith(RegExp(r'import.*package:devtools_server/.*.dart')) ||
               line.startsWith(RegExp(r'import.*build_runner/.*.dart'))) {
             final String relativePath = fileSystem.path.relative(file.path, from: flutterTools);
             fail('$relativePath imports a build_runner/dwds/devtools package');
@@ -277,6 +295,31 @@ void main() {
       if (line.startsWith(RegExp(r'import.*package:.*'))) {
         final String relativePath = fileSystem.path.relative(file.path, from: flutterTools);
         fail('$relativePath imports a package');
+      }
+    }
+  });
+
+  test('no import of base/exit.dart in lib/** outside of allow-listed paths', () {
+    final allowedPaths = <String>[fileSystem.path.join(flutterTools, 'lib', 'runner.dart')];
+
+    bool isNotAllowed(FileSystemEntity entity) {
+      return allowedPaths.every((String path) => !entity.path.contains(path));
+    }
+
+    for (final dirName in <String>['lib']) {
+      final Iterable<File> files = fileSystem
+          .directory(fileSystem.path.join(flutterTools, dirName))
+          .listSync(recursive: true)
+          .where(_isDartFile)
+          .where(isNotAllowed)
+          .map(_asFile);
+      for (final file in files) {
+        for (final String line in file.readAsLinesSync()) {
+          if (line.startsWith(RegExp(r'import.*src/base/exit.dart'))) {
+            final String relativePath = fileSystem.path.relative(file.path, from: flutterTools);
+            fail('$relativePath imports flutter_tools/src/base/exit.dart');
+          }
+        }
       }
     }
   });

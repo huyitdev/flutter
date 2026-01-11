@@ -2139,18 +2139,16 @@ class _CalendarDateRangePickerState extends State<_CalendarDateRangePicker> {
               controller: _controller,
               center: _sliverAfterKey,
               slivers: <Widget>[
-                SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (BuildContext context, int index) => _buildMonthItem(context, index, true),
-                    childCount: _initialMonthIndex,
-                  ),
+                SliverList.builder(
+                  itemCount: _initialMonthIndex,
+                  itemBuilder: (BuildContext context, int index) =>
+                      _buildMonthItem(context, index, true),
                 ),
-                SliverList(
+                SliverList.builder(
                   key: _sliverAfterKey,
-                  delegate: SliverChildBuilderDelegate(
-                    (BuildContext context, int index) => _buildMonthItem(context, index, false),
-                    childCount: _numberOfMonths - _initialMonthIndex,
-                  ),
+                  itemCount: _numberOfMonths - _initialMonthIndex,
+                  itemBuilder: (BuildContext context, int index) =>
+                      _buildMonthItem(context, index, false),
                 ),
               ],
             ),
@@ -2397,8 +2395,10 @@ class _MonthItemGridDelegate extends SliverGridDelegate {
 
   @override
   SliverGridLayout getLayout(SliverConstraints constraints) {
-    final double tileWidth =
-        (constraints.crossAxisExtent - 2 * _horizontalPadding) / DateTime.daysPerWeek;
+    final double tileWidth = math.max(
+      (constraints.crossAxisExtent - 2 * _horizontalPadding) / DateTime.daysPerWeek,
+      0.0,
+    );
     return _MonthSliverGridLayout(
       crossAxisCount: DateTime.daysPerWeek + 2,
       dayChildWidth: tileWidth,
